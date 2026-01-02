@@ -5,7 +5,7 @@
 ; - Frame-locked main loop via NMI flag
 ; - 4 falling objects total + 3 misses (lives)
 ; - Score + flash + powerups + difficulty ramp
-; - version 2.4 This is a test
+; - version 2.4 This is a second test
 ; =========================
 
 PRG_BANKS = 1
