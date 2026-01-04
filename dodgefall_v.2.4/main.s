@@ -1,3 +1,15 @@
+; ============================================================
+; Dodgefall v2.3 — FROZEN KNOWN-GOOD BASELINE
+; ------------------------------------------------------------
+; This file is intentionally frozen as a stable reference build.
+; If you want to change gameplay, do it on a new branch/copy:
+;   - branch: v2.4-experiments (or similar)
+;   - or duplicate: main_v24.s and edit THAT
+;
+; If the game breaks, return to tag: v2.3-freeze
+; ============================================================
+
+
 ; =========================
 ; Dodgefall — NES catch/avoid (ca65)
 ; - NROM-128 (16KB PRG), 8KB CHR-ROM
