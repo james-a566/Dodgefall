@@ -5,13 +5,12 @@
 ; - Frame-locked main loop via NMI flag
 ; - 4 falling objects total + 3 misses (lives)
 ; - Score + flash + powerups + difficulty ramp
-; - version 2.3 
+; - version 2.3
 ; =========================
 
 PRG_BANKS = 1
 CHR_BANKS = 1
 
-OAM_BUF   = $0200
 
 ; ============================================================
 ; OAM layout helpers
@@ -55,7 +54,7 @@ RAMP_FRAMES_HI = >$05DC
 STREAK_TARGET = $05      ; goods in a row
 SCORE_STREAK  = $50      ; +50 points (packed BCD)
 
-COMBO_STEP = 5           ; every 3 consecutive GOOD catches => mult++
+COMBO_STEP = 5           ; every 5 consecutive GOOD catches => mult++
 COMBO_MAX  = 4           ; cap at x4
 
 ; ============================================================
@@ -82,7 +81,7 @@ GAMEOVER_ATTR = $00
 
 NEWHIGH_BASE = $D8       ; sprites 54..61
 NEWHIGH_Y    = $68
-NEWHIGH_X    = $58
+NEWHIGH_X    = $5C
 
 OBJ2_MIN_OBJ1_Y = $30   ; obj1 must be at/ below this Y before obj2 can spawn
 
@@ -162,131 +161,119 @@ ObjTileTable:
 ; =========================
 .segment "ZEROPAGE"
 
-; -------------------------
-; Controller input
-; -------------------------
 pad1:         .res 1
-pad1_prev:    .res 1     ; for edge-detect
-new_presses:  .res 1     ; (pad1 ^ pad1_prev) & pad1
+pad1_prev:    .res 1
+new_presses:  .res 1
 
-; -------------------------
-; Global state / timing
-; -------------------------
 nmi_ready:    .res 1
-game_state:   .res 1     ; 0=title, 1=playing (expand later)
-paused:       .res 1     ; 0/1
+game_state:   .res 1
+paused:       .res 1
 
 frame_lo:     .res 1
 frame_hi:     .res 1
-rng:          .res 1
 
-pause_timer:  .res 1
-sfx_timer:    .res 1
-
-game_over:    .res 1
-misses:       .res 1
-
-; -------------------------
-; Player
-; -------------------------
 player_x:       .res 1
-player_x_prev:  .res 1   ; for swept collision
+player_x_prev:  .res 1
 move_spd:       .res 1
 
 flash_timer:    .res 1
 flash_pal:      .res 1
 
-; “snap/assist” style mechanics
-magnet_active:  .res 1
-magnet_timer:   .res 1
-
-power_timer:    .res 1
-
-; -------------------------
-; Difficulty / pacing
-; -------------------------
-diff:          .res 1     ; 0..MAX_DIFF
-ramp_lock:     .res 1
-streak8:       .res 1
-fall_frac:     .res 1
-
-fall_speed:    .res 1
-speed_pending: .res 1
-
-zig_dir:       .res 1
-zig_tick:      .res 1
-
-; -------------------------
-; Scoring / combo / streak
-; -------------------------
-score_bcd0:   .res 1
-score_bcd1:   .res 1
-
-high_bcd0:    .res 1
-high_bcd1:    .res 1
-
-combo_count:  .res 1
-combo_mult:   .res 1
-
-good_count:   .res 1
-streak_chirp: .res 1
-
-new_high:     .res 1
-jingle_on:    .res 1
-jingle_timer: .res 1
-jingle_step:  .res 1
-
-; HUD polish
-hud_nudge_timer:    .res 1
-hud_nudge_phase:    .res 1
-badge_flash_timer:  .res 1
-
-; -------------------------
-; Falling Object #1 (obj)
-; -------------------------
-obj_x:       .res 2
-obj_y:       .res 2
-obj_y_prev:  .res 2
-
-obj_type:    .res 2
-obj_alive:   .res 2
-obj_speed:   .res 2
-
-respawn_pending: .res 1
-
-; Catch system
-catch_hold:  .res 1
-x_swept_ok:  .res 1     ; 0/1: skip absdx check when swept passes
-
-; -------------------------
-; Falling Object #2 (obj2)
-; -------------------------
-obj2_x:      .res 1
-obj2_y:      .res 1
-obj2_type:   .res 1
-obj2_alive:  .res 1
-
-spawn_cd:         .res 1
-obj2_spawn_delay: .res 1
-
-; -------------------------
-; UI hearts / pulse
-; -------------------------
-heart_pulse: .res 1
-heart_phase: .res 1
-
-; -------------------------
-; Math / scratch temps
-; -------------------------
 tmp:      .res 1
 tmp2:     .res 1
 absdx:    .res 1
 absdy:    .res 1
 
-digit_th: .res 1
-digit_h:  .res 1
-digit_t:  .res 1
-digit_o:  .res 1
+catch_hold:        .res 1
+respawn_pending:   .res 1
+
+zig_dir:           .res 1
+zig_tick:          .res 1
+
+digit_th:          .res 1
+digit_h:           .res 1
+digit_t:           .res 1
+digit_o:           .res 1
+
+new_high:          .res 1   
+
+
+; =========================
+; General RAM (non–zero page)
+; =========================
+.segment "BSS"
+
+OAM_BUF: .res 256
+
+rng:                .res 1
+
+; ---- spawn fairness ----
+bad_streak:        .res 1   ; how many BAD spawns in a row
+no_power_ctr:      .res 1   ; how many spawns since last POWER
+same_lane_streak:  .res 1   ; same X repeated streak
+last_spawn_x:      .res 1   ; last obj1 spawn X
+gold_cooldown:     .res 1   ; prevent back-to-back golds (optional but nice)
+
+
+
+; Scoring/HUD
+score_bcd0:         .res 1
+score_bcd1:         .res 1
+high_bcd0:          .res 1
+high_bcd1:          .res 1
+
+combo_count:        .res 1
+combo_mult:         .res 1
+good_count:         .res 1
+streak_chirp:       .res 1
+
+hud_nudge_timer:    .res 1
+hud_nudge_phase:    .res 1
+badge_flash_timer:  .res 1
+
+; Audio/jingle
+sfx_timer:          .res 1
+jingle_on:          .res 1
+jingle_timer:       .res 1
+jingle_step:        .res 1
+
+; Difficulty/pacing
+diff:               .res 1
+ramp_lock:          .res 1
+fall_frac:          .res 1
+fall_speed:         .res 1
+speed_pending:      .res 1
+
+; Objects
+obj_x:              .res 2
+obj_y:              .res 2
+obj_y_prev:         .res 2
+obj_type:           .res 2
+obj_alive:          .res 2
+obj_speed:          .res 2
+
+obj2_x:             .res 1
+obj2_y:             .res 1
+obj2_type:          .res 1
+obj2_alive:         .res 1
+spawn_cd:           .res 1
+
+; Misc
+misses:             .res 1
+game_over:          .res 1
+pause_timer:        .res 1
+power_timer:        .res 1
+magnet_active:      .res 1
+magnet_timer:       .res 1
+heart_pulse:        .res 1
+heart_phase:        .res 1
+
+
+
+
+
+
+
 
 
 
@@ -559,7 +546,7 @@ SnapPlayerTowardX:
 SPTX_TargetRight:
   lda player_x
   clc
-  adc #$02
+  adc #$03
   cmp #$F0
   bcc :+
     lda #$F0
@@ -570,7 +557,7 @@ SPTX_TargetRight:
 SPTX_TargetLeft:
   lda player_x
   sec
-  sbc #$02
+  sbc #$03
   cmp #$08
   bcs :+
     lda #$08
@@ -641,10 +628,129 @@ and #$F8
   :
   sta obj_x
 
+    ; ---- if OBJ2 is alive, prevent OBJ1 from spawning in same/adjacent lane ----
+  lda obj2_alive
+  beq @spawn1_sep_done
+
+@spawn1_sep_check:
+  lda obj_x
+  sec
+  sbc obj2_x
+  bcs @spawn1_dx_pos
+    eor #$FF
+    clc
+    adc #$01
+@spawn1_dx_pos:
+  cmp #$10              ; 16px minimum separation
+  bcs @spawn1_sep_done
+
+  ; too close: push OBJ1 away by +$20 (32px) and re-check (wrap safe)
+  lda obj_x
+  clc
+  adc #$20
+  and #$F8
+  cmp #$F0
+  bcc :+
+    lda #$08
+:
+  sta obj_x
+  jmp @spawn1_sep_check
+
+@spawn1_sep_done:
+
+
+; ---- lane anti-clump: allow same lane twice, prevent 3rd ----
+; Requires: last_spawn_x, same_lane_streak in RAM (BSS or ZP)
+
+  lda obj_x
+  cmp last_spawn_x
+  bne LaneNew           ; different lane => reset streak
+
+  ; same lane as last
+  inc same_lane_streak
+  lda same_lane_streak
+  cmp #$02
+  bcc LaneOK            ; streak 1 or 2 is fine
+
+  ; third time in same lane => nudge 8px (wrap-safe)
+  lda obj_x
+  clc
+  adc #$08
+  and #$F8
+  cmp #$F0
+  bcc :+
+    lda #$08
+:
+  sta obj_x
+
+  ; after nudging, treat as "new lane" for streak tracking
+  lda #$00
+  sta same_lane_streak
+  jmp LaneOK
+
+LaneNew:
+  lda #$00
+  sta same_lane_streak
+
+LaneOK:
+  lda obj_x
+  sta last_spawn_x
+
+
+  ; ---- if OBJ2 is alive, prevent OBJ1 from spawning too close ----
+  lda obj2_alive
+  beq Spawn1SepDone
+
+Spawn1SepCheck:
+  lda obj_x
+  sec
+  sbc obj2_x
+  bcs Spawn1DxPos
+    eor #$FF
+    clc
+    adc #$01
+Spawn1DxPos:
+  cmp #$10              ; 16px minimum separation
+  bcs Spawn1SepDone
+
+  ; too close: push OBJ1 away and re-check
+  lda obj_x
+  clc
+  adc #$20
+  and #$F8
+  cmp #$F0
+  bcc :+
+    lda #$08
+:
+  sta obj_x
+  jmp Spawn1SepCheck
+
+Spawn1SepDone:
+
+
+
+  ; reset streak because we forced a change
+  lda #$00
+  sta same_lane_streak
+  lda obj_x
+  sta last_spawn_x
+  jmp @lane_ok
+
+@new_lane:
+  lda #$00
+  sta same_lane_streak
+  lda obj_x
+  sta last_spawn_x
+
+@lane_ok:
+
+
   ; advance RNG again (for type)
   jsr NextRNG
-  lda rng
-  and #$0F          ; 0..15
+    lda rng
+    eor frame_lo
+    and #$0F
+
 
   cmp #$00
   beq @make_gold    ; 1/16 chance
@@ -658,6 +764,48 @@ and #$F8
   ; else bad
   lda #OBJ_BAD
   sta obj_type
+  ; -------------------------
+; Fairness rules for obj_type
+; -------------------------
+
+; 1) gold cooldown: if cooldown active, downgrade gold to good
+lda gold_cooldown
+beq :+
+  lda obj_type
+  cmp #OBJ_GOLD
+  bne :+
+    lda #OBJ_GOOD
+    sta obj_type
+:
+; tick gold cooldown down once per spawn (cheap + predictable)
+lda gold_cooldown
+beq :+
+  dec gold_cooldown
+:
+
+; 2) guarantee a POWER at least every 20 spawns
+; (only if we didn't just roll GOLD)
+lda no_power_ctr
+cmp #20
+bcc @no_forced_power
+  lda obj_type
+  cmp #OBJ_GOLD
+  beq @no_forced_power
+    lda #OBJ_POWER
+    sta obj_type
+@no_forced_power:
+
+; 3) no more than 2 BAD spawns in a row
+lda bad_streak
+cmp #$02
+bcc @no_bad_clamp
+  lda obj_type
+  cmp #OBJ_BAD
+  bne @no_bad_clamp
+    lda #OBJ_GOOD
+    sta obj_type
+@no_bad_clamp:
+
   jmp @set_speed
 
 @make_good:
@@ -683,6 +831,35 @@ and #$F8
     clc
     adc #$01        ; gold = base+1
 :
+
+; ---- update fairness counters based on FINAL obj_type ----
+lda obj_type
+cmp #OBJ_BAD
+bne @not_bad
+  inc bad_streak
+  jmp @bad_done
+@not_bad:
+  lda #$00
+  sta bad_streak
+@bad_done:
+
+lda obj_type
+cmp #OBJ_POWER
+bne @not_power
+  lda #$00
+  sta no_power_ctr
+  jmp @power_done
+@not_power:
+  inc no_power_ctr
+@power_done:
+
+lda obj_type
+cmp #OBJ_GOLD
+bne @not_gold
+  lda #8              ; cooldown length in spawns (tune 6–12)
+  sta gold_cooldown
+@not_gold:
+
   sta obj_speed
 
 jsr SetObj2SpawnCD
@@ -694,8 +871,26 @@ jsr SetObj2SpawnCD
 
 
 StartNewGame:
+; --- reseed RNG so each run starts differently ---
+lda rng
+eor frame_lo
+eor frame_hi
+eor pad1
+eor new_presses
+sta rng
+jsr NextRNG            ; stir once
+
   lda #$00
   sta catch_hold
+
+; ---- spawn fairness init (new run) ----
+lda #$00
+sta bad_streak
+sta no_power_ctr
+sta same_lane_streak
+sta last_spawn_x
+sta gold_cooldown
+
 
 lda #$00
 sta new_high
@@ -734,7 +929,6 @@ sta score_bcd1
 lda #$00
 sta diff
 sta ramp_lock
-sta streak8
 sta fall_frac
 
 
@@ -867,6 +1061,17 @@ lda #$00
 sta speed_pending
 lda #$A7
 sta rng
+
+
+; ---- spawn fairness init (cold boot) ----
+lda #$00
+sta bad_streak
+sta no_power_ctr
+sta same_lane_streak
+sta last_spawn_x
+sta gold_cooldown
+
+
 lda #$00
 sta frame_lo
 sta frame_hi
@@ -901,7 +1106,6 @@ sta jingle_step
 lda #$00
 sta diff
 sta ramp_lock
-sta streak8
 sta fall_frac
 
 lda #$00
@@ -937,9 +1141,8 @@ lda obj_x
 sta OAM_BUF+OBJ1_BASE+3   ; X
 
 ; ---- Falling object trail (previous-frame position) ----
-lda tmp
-cmp #$03
-bcc @trail_hide
+lda #$FE
+sta OAM_BUF+TRAIL_BASE+0
 
 lda obj_y_prev
 sta OAM_BUF+TRAIL_BASE+0
@@ -1608,19 +1811,23 @@ jmp Apply
 ; =========================
 ; OBJ2 SPAWN (when cd == 0 and obj2 not alive)
 ; =========================
+
 lda obj2_alive
-bne @after_obj2_spawn
+beq :+                 ; if obj2_alive == 0, continue
+  jmp AfterObj2Spawn
+:
 
 lda spawn_cd
-bne @after_obj2_spawn
+beq :+                 ; if spawn_cd == 0, continue
+  jmp AfterObj2Spawn
+:
+
 
 lda obj_y
 cmp #OBJ2_MIN_OBJ1_Y
-bcc @after_obj2_spawn
-
-lda obj_y
-cmp #OBJ2_MIN_OBJ1_Y
-bcc @after_obj2_spawn     ; obj1 still too high -> don't spawn obj2 yet
+bcs :+              ; if obj_y >= MIN, continue
+jmp AfterObj2Spawn  ; far jump
+:
 
 
 ; ---- activate obj2 ----
@@ -1630,12 +1837,9 @@ sta obj2_alive
 lda #OBJ_START_Y
 sta obj2_y
 
+lda obj_type
+sta obj2_type
 
-; IMPORTANT: make sure obj2_type is valid (0..3)
-; If you already have logic for picking type, do it here.
-; (Example: copy obj_type, or roll RNG, etc.)
-; lda obj_type
-; sta obj2_type
 
 ; --- obj2_x = obj_x +/- $40 (50/50), snapped + clamped ---
 jsr NextRNG
@@ -1667,25 +1871,66 @@ beq @obj2_right
     lda #$F0
 :
   
-  sta obj2_x
+    sta obj2_x
 
-  ; --- NEVER allow obj2 to spawn in the same X lane as obj1 ---
+  ; ---- enforce minimum horizontal separation from obj1 ----
+  ; require abs(obj2_x - obj_x) >= $10 (16px)
+O2_SepCheck:
   lda obj2_x
-  cmp obj_x
-  bne @after_obj2_spawn
+  sec
+  sbc obj_x
+  bcs O2_SepDxPos
+    eor #$FF
+    clc
+    adc #$01
+O2_SepDxPos:
+  cmp #$10
+  bcs O2_SepOK
 
-  ; same lane: move one tile (8px) to the right, wrap/clamp
+  ; too close (same lane or adjacent):
+  ; push obj2 further away by +$20 (32px), wrap safely
   lda obj2_x
   clc
-  adc #$08
+  adc #$20
   and #$F8
   cmp #$F0
   bcc :+
-    lda #$08          ; wrap to left instead of piling at right edge
+    lda #$08
+:
+  sta obj2_x
+  jmp O2_SepCheck        ; re-check after adjustment
+
+O2_SepOK:
+
+
+
+  ; ---- prevent OBJ2 from spawning touching OBJ1 (min 16px) ----
+  lda obj2_x
+  sec
+  sbc obj_x
+  bcs @sep_dx_pos
+    eor #$FF
+    clc
+    adc #$01
+@sep_dx_pos:
+  cmp #$10              ; 16px minimum separation
+  bcs @sep_ok
+
+  ; too close: push OBJ2 one more lane away (+16px), wrap safely
+  lda obj2_x
+  clc
+  adc #$10
+  and #$F8
+  cmp #$F0
+  bcc :+
+    lda #$08
 :
   sta obj2_x
 
-@after_obj2_spawn:
+@sep_ok:
+
+
+AfterObj2Spawn:
 
 
 
@@ -1741,11 +1986,6 @@ beq :+
   sta move_spd        ; magnet speed = 4
 :
 
-
- inc frame_lo
-  bne :+
-  inc frame_hi
-:
 
 lda player_x
 sta player_x_prev
@@ -1818,6 +2058,7 @@ lda player_x
 cmp obj_x
 beq @magnet_done
 bcc @mag_right
+
 @mag_left:
   dec player_x
   dec player_x
@@ -1826,7 +2067,23 @@ bcc @mag_right
   inc player_x
   inc player_x
 
+
+; after magnet inc/dec block, clamp player_x
+  lda player_x
+  cmp #$08
+  bcs :+
+    lda #$08
+    sta player_x
+:
+  lda player_x
+  cmp #$F0
+  bcc :+
+    lda #$F0
+    sta player_x
+:
+
 @magnet_done:
+
 ; ---- END MAGNET ----
 
 
@@ -1944,8 +2201,10 @@ beq @obj2_bottom_done
   lda #$00
   sta obj2_alive
   lda #OBJ2_SPAWN_DELAY
+  sta spawn_cd
 
 @obj2_bottom_done:
+
 
 
 
@@ -2000,7 +2259,12 @@ beq :+
 ; ---- Miss check (past bottom) ----
   lda obj_y
   cmp #OBJ_RESET_Y
-  bcc CheckCatch
+  bcs @past_bottom      ; if obj_y >= OBJ_RESET_Y, skip catch and do miss
+  jmp CheckCatch        ; far jump is fine
+
+@past_bottom:
+  ; (your existing miss logic continues here)
+
 
 
 
@@ -2076,19 +2340,32 @@ jsr SpawnObject
 jmp Apply
 
 RespawnOnCatch:
-  ; If obj2 is near the top, wait a moment before respawning obj1
+  ; If obj2 is near the top, delay respawning obj1
   lda obj2_alive
-  beq :+
+  beq @spawn_now
   lda obj2_y
   cmp #$10
-  bcs :+
-    lda #$08          ; 8 frames wait (tune 4..12)
-    sta pause_timer   ; reuse existing freeze timer
-    jmp Apply         ; skip spawning this frame
-:
+  bcs @spawn_now
 
-jsr SpawnObject
-jmp Apply
+    ; ---- delay path: REMOVE obj1 now + schedule respawn ----
+    lda #$01
+    sta respawn_pending
+
+    lda #$00
+    sta catch_hold          ; safety: don't let hold re-trigger later
+
+    lda #$FE                ; hide obj1 while waiting
+    sta obj_y
+    sta obj_y_prev          ; keeps trail from popping at old Y
+
+    lda #$08
+    sta pause_timer
+    jmp Apply
+
+@spawn_now:
+  jsr SpawnObject
+  jmp Apply
+
 
 ; ============================================================
 ; CheckCatch (OBJ1) — clean swept-X + hold-window catch
@@ -2395,8 +2672,7 @@ CC2_NoCatch:
 ; IMPORTANT: does NOT call obj1 handlers (they use obj_x/obj_type).
 ; ============================================================
 Caught:
-  lda obj2_x
-  jsr SnapPlayerTowardX
+
 
   lda obj2_type
   beq C2_JmpGood
@@ -2419,6 +2695,9 @@ C2_JmpPower:
   jmp Caught2_Power
 
 Caught2_Good:
+  lda obj2_x
+  jsr SnapPlayerTowardX
+
 
   ; score
   lda #SCORE_GOOD
@@ -2493,8 +2772,10 @@ Caught2_GoodFx:
 
 
 Caught2_Bad:
-lda obj2_x
-jsr SnapPlayerTowardX
+  lda obj2_x
+  jsr SnapPlayerTowardX
+
+
 
   ; reset combo on bad
   lda #$01
@@ -2531,8 +2812,10 @@ sta obj2_alive
 
 
 Caught2_Power:
-lda obj2_x
-jsr SnapPlayerTowardX
+  lda obj2_x
+  jsr SnapPlayerTowardX
+
+
 
   lda #SCORE_POWER
   jsr AddScoreWithMultA
@@ -2549,8 +2832,10 @@ jsr SnapPlayerTowardX
 
 
 Caught2_Gold:
-lda obj2_x
-jsr SnapPlayerTowardX
+  lda obj2_x
+  jsr SnapPlayerTowardX
+
+
 
   lda #SCORE_GOLD
   jsr AddScoreWithMultA
@@ -2571,107 +2856,14 @@ Caught2_Kill:
   lda #$00
   sta obj2_alive
   lda #OBJ2_SPAWN_DELAY
+  sta spawn_cd
   rts
+
 
 
 @done:
   rts
   
-CC1_Continue:
-
-  ; ---- dy = obj_y - PLAYER_Y ----
-  lda obj_y
-  sec
-  sbc #PLAYER_Y
-  sta absdy
-
-  ; If dy >= tmp2 -> clear hold and apply
-  lda absdy
-  cmp tmp2
-  bcc :+
-    jmp CC_ClearAndApply
-:
-
-  ; ---- abs(dx) ----
-lda obj_x
-sec
-sbc player_x
-bcs @dx_ok
-  eor #$FF
-  clc
-  adc #$01
-@dx_ok:
-sta absdx
-
-
-  ; expand hold window to prevent tunneling at high horizontal speed
-  lda tmp2
-  clc
-  adc #$04          ; try #$04 first; if still glitches, use #$05 or #$06
-  sta tmp2          ; (only safe if tmp2 is reloaded each frame before this block)
-
-  lda absdx
-  cmp tmp2
-  bcc :+
-    jmp CC_ClearAndApply
-:
-
-
-  ; near enough: arm hold for 2 frames
-  lda #$02
-  sta catch_hold
-
-; tight catch if both inside tmp
-lda absdy
-cmp tmp
-bcc @dy_in
-  jmp CC_MaybeHold
-@dy_in:
-
-lda absdx
-cmp tmp
-bcc @dx_in
-  jmp CC_MaybeHold
-@dx_in:
-
-jmp CC_CaughtDispatch
-
-
-CC_MaybeHold:
-  lda catch_hold
-  beq CC_Apply
-  jmp CC_CaughtDispatch
-
-CC_ClearAndApply:
-  lda #$00
-  sta catch_hold
-
-CC_Apply:
-  jmp Apply
-
-CC_CaughtDispatch:
-  lda #$00
-  sta catch_hold
-
-  lda obj_type
-  bne :+
-    jmp CaughtGood
-:
-  cmp #$01
-  bne :+
-    jmp CaughtBad
-:
-  cmp #$02
-  bne :+
-    jmp CaughtPower
-:
-  cmp #$03
-  bne :+
-    jmp CaughtGold
-:
-  jmp Apply
-
-
 
 @go_good:
   jmp CaughtGood
@@ -2695,55 +2887,41 @@ CC_DoGold:
 
 
   CaughtGold:
+  lda obj_x
+  jsr SnapPlayerTowardX
 
-  ; --- GOLD ACTIVATE (one timer drives everything) ---
-lda #$01
-sta magnet_active
+  lda #$01
+  sta magnet_active
+  lda #$FF
+  sta magnet_timer
 
-lda #$FF          ; duration (~3.2s NTSC). Tune: $A0, $C0, $FF
-sta magnet_timer
-
-
-lda obj_x
-jsr SnapPlayerTowardX
-lda obj_x
-jsr SnapPlayerTowardX
-
-
-lda #SCORE_GOLD
-jsr AddScoreWithMultA
-
+  lda #SCORE_GOLD
+  jsr AddScoreWithMultA
 
   lda #$08
-sta hud_nudge_timer
-lda #$00
-sta hud_nudge_phase
+  sta hud_nudge_timer
+  lda #$00
+  sta hud_nudge_phase
 
-  jsr PlayPowerupBeep     ; or make a PlayGoldBeep later
+  jsr PlayPowerupBeep
 
-
-lda #$01
-sta magnet_active
-
-lda #$80          ; your magnet duration
-sta magnet_timer
-
-
-lda #$01
-sta magnet_active
-
-lda #$80
-sta magnet_timer
-
-
+  lda #$08
+  sta flash_timer
+  lda #$02
+  sta flash_pal
+  lda #$03
+  sta pause_timer
 
   jmp RespawnOnCatch
 
 
 
+
 CaughtGood:
-lda obj_x
-jsr SnapPlayerTowardX
+  lda obj_x
+  jsr SnapPlayerTowardX
+
+
 
 
   ; apply GOOD score with multiplier
@@ -2829,15 +3007,12 @@ AfterMultStep1:
 
 
 CaughtBad:
+
+  lda obj_x
+  jsr SnapPlayerTowardX
+
  lda #$01
 sta combo_mult
-
-
-
-lda obj_x
-jsr SnapPlayerTowardX
-
-
 
   lda #SCORE_BAD     ; −10 points
   jsr SubScoreA
@@ -2878,6 +3053,9 @@ DoRespawnAfterBadCatch:
   jmp Apply
 
 CaughtPower:
+  lda obj_x
+  jsr SnapPlayerTowardX
+
 
 
 lda #SCORE_POWER
@@ -2888,8 +3066,7 @@ jsr AddScoreWithMultA
   lda #180
   sta power_timer       ; refresh duration every time
 
-lda obj_x
-jsr SnapPlayerTowardX
+
 
   lda misses
   beq :+
@@ -3606,6 +3783,10 @@ jmp @obj2_done
 
 @obj2_done:
 
+; ---- RNG stir (cheap entropy) ----
+lda rng
+eor frame_lo
+sta rng
 
     jmp Forever
 
@@ -3617,8 +3798,8 @@ jmp @obj2_done
 NMI:
 lda #$00
 sta $2003
-lda #$02
-sta $4014              ; DMA from $0200
+lda #>OAM_BUF
+sta $4014              
 
 ; ---- High score jingle ----
 lda jingle_on
@@ -3716,6 +3897,12 @@ bne :+
   sta $4015          ; disable all channels
   lda #$30
   sta $4000          ; volume = 0 (extra safety)
+:
+
+; ---- free-running counter (ticks on title too) ----
+inc frame_lo
+bne :+
+  inc frame_hi
 :
 
 inc nmi_ready
